@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scapini Dental Design — Dashboard de Relacionamento</title>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --navy:    #0b2240;
+    --navy2:   #091a32;
+    --navy3:   #0d2b4e;
+    --orange:  #ed7625;
+    --orange-dim: rgba(237,118,37,0.12);
+    --white:   #ffffff;
+    --line:    rgba(255,255,255,0.07);
+    --muted:   rgba(255,255,255,0.45);
+    --green:   #2ecc71;
+    --yellow:  #f1c40f;
+    --red:     #e74c3c;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--navy2); color:var(--white); font-family:'Open Sans',sans-serif; font-size:14px; line-height:1.6; }
+
+  /* ── UPLOAD ── */
+  #upload-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; padding:40px 20px; }
+  .brand-tag { font-family:'Space Mono',monospace; font-size:11px; letter-spacing:4px; text-transform:uppercase; color:var(--orange); margin-bottom:12px; }
+  .upload-title { font-size:32px; font-weight:700; text-align:center; margin-bottom:8px; }
+  .upload-title span { color:var(--orange); }
+  .upload-sub { color:var(--muted); font-size:14px; margin-bottom:48px; }
+  .drop-zone { width:100%; max-width:520px; border:2px dashed rgba(237,118,37,0.35); border-radius:16px; padding:56px 40px; text-align:center; cursor:pointer; transition:all .25s; background:rgba(237,118,37,0.04); position:relative; }
+  .drop-zone:hover, .drop-zone.drag-over { border-color:var(--orange); background:var(--orange-dim); }
+  .drop-zone input[type="file"] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+  .drop-icon { width:52px; height:52px; background:var(--orange-dim); border-radius:12px; display:flex; align-items:center; justify-content:center; margin:0 auto 20px; font-size:22px; }
+  .drop-zone h3 { font-size:18px; font-weight:600; margin-bottom:6px; }
+  .drop-zone p { color:var(--muted); font-size:13px; }
+  .drop-hint { margin-top:16px; font-family:'Space Mono',monospace; font-size:10px; letter-spacing:2px; color:var(--orange); text-transform:uppercase; }
+  #upload-error { margin-top:16px; color:var(--red); font-size:13px; display:none; }
+
+  /* ── LOADING ── */
+  #loading { position:fixed; inset:0; background:var(--navy2); display:none; flex-direction:column; align-items:center; justify-content:center; z-index:999; }
+  .spinner { width:40px; height:40px; border:3px solid rgba(255,255,255,0.08); border-top-color:var(--orange); border-radius:50%; animation:spin .8s linear infinite; margin-bottom:14px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .loading-text { font-family:'Space Mono',monospace; font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); }
+
+  /* ── DASHBOARD ── */
+  #dashboard { display:none; }
+
+  /* HEADER */
+  header { background:var(--navy); border-bottom:1px solid var(--line); padding:0 28px; height:60px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; }
+  .hbrand { display:flex; align-items:center; gap:10px; }
+  .hbrand .pulse { width:8px; height:8px; background:var(--orange); border-radius:50%; animation:pls 2s infinite; }
+  @keyframes pls { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.4)} }
+  .hbrand span { font-family:'Space Mono',monospace; font-size:12px; letter-spacing:2px; text-transform:uppercase; }
+  .hbrand em { color:var(--orange); font-style:normal; }
+  .hright { display:flex; align-items:center; gap:14px; }
+  .hfile { font-size:11px; color:var(--muted); font-family:'Space Mono',monospace; }
+  .btn-sm { background:none; border:1px solid rgba(255,255,255,0.13); color:var(--muted); padding:5px 13px; border-radius:6px; font-size:12px; cursor:pointer; font-family:'Open Sans',sans-serif; transition:all .2s; }
+  .btn-sm:hover { border-color:var(--orange); color:var(--orange); }
+
+  /* FILTERS */
+  .fbar { background:var(--navy); border-bottom:1px solid var(--line); padding:10px 28px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .flabel { font-family:'Space Mono',monospace; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-right:4px; }
+  .fbtn { background:none; border:1px solid rgba(255,255,255,0.11); color:rgba(255,255,255,0.55); padding:5px 14px; border-radius:20px; font-size:12px; font-family:'Open Sans',sans-serif; cursor:pointer; transition:all .2s; white-space:nowrap; }
+  .fbtn:hover { border-color:var(--orange); color:var(--orange); }
+  .fbtn.active { background:var(--orange); border-color:var(--orange); color:#fff; font-weight:600; }
+  .fsep { width:1px; height:18px; background:var(--line); margin:0 6px; }
+  .fsearch { margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.09); border-radius:8px; padding:5px 13px; color:var(--white); font-size:13px; font-family:'Open Sans',sans-serif; width:210px; transition:border-color .2s; }
+  .fsearch:focus { outline:none; border-color:var(--orange); }
+  .fsearch::placeholder { color:var(--muted); }
+
+  /* STATUS INDICATOR */
+  .status-bar { background:rgba(237,118,37,0.08); border-bottom:1px solid rgba(237,118,37,0.15); padding:8px 28px; display:none; align-items:center; gap:10px; }
+  .status-bar.visible { display:flex; }
+  .status-bar-text { font-size:12px; color:var(--orange); font-family:'Space Mono',monospace; }
+  .status-bar-clear { font-size:11px; color:var(--muted); cursor:pointer; text-decoration:underline; }
+  .status-bar-clear:hover { color:var(--white); }
+
+  /* MAIN */
+  .main { padding:24px 28px; max-width:1400px; margin:0 auto; }
+
+  /* KPIs */
+  .kgrid { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:24px; }
+  .kcard { background:var(--navy); border:1px solid var(--line); border-radius:12px; padding:18px 20px; transition:border-color .2s; }
+  .kcard:hover { border-color:rgba(237,118,37,0.25); }
+  .klabel { font-family:'Space Mono',monospace; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+  .kval { font-size:24px; font-weight:700; line-height:1; margin-bottom:4px; }
+  .kval.or { color:var(--orange); }
+  .kval.gr { color:var(--green); }
+  .kval.re { color:var(--red); }
+  .kval.gy { color:#888; }
+  .ksub { font-size:11px; color:var(--muted); }
+
+  /* SEMAFORO */
+  .sgrid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
+  .scard { background:var(--navy); border:1px solid var(--line); border-radius:12px; padding:16px 18px; cursor:pointer; transition:all .2s; border-left:4px solid transparent; }
+  .scard:hover { background:var(--navy3); }
+  .scard.sg { border-left-color:var(--green); }
+  .scard.sy { border-left-color:var(--yellow); }
+  .scard.sr { border-left-color:var(--red); }
+  .scard.sd { border-left-color:#444; }
+  .scard.active { background:var(--navy3); box-shadow:0 0 0 1px rgba(237,118,37,0.3); }
+  .stop { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .sdot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .sg .sdot { background:var(--green); box-shadow:0 0 6px var(--green); }
+  .sy .sdot { background:var(--yellow); box-shadow:0 0 6px var(--yellow); }
+  .sr .sdot { background:var(--red); box-shadow:0 0 6px var(--red); }
+  .sd .sdot { background:#555; }
+  .stitle { font-size:13px; font-weight:600; }
+  .ssub { font-size:10px; color:var(--muted); }
+  .scount { font-size:34px; font-weight:700; line-height:1; margin-bottom:4px; }
+  .sg .scount { color:var(--green); }
+  .sy .scount { color:var(--yellow); }
+  .sr .scount { color:var(--red); }
+  .sd .scount { color:#777; }
+  .srec { font-size:11px; color:var(--muted); padding-top:8px; border-top:1px solid var(--line); }
+
+  /* 2-COL */
+  .twocol { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:24px; }
+
+  /* PANELS */
+  .panel { background:var(--navy); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .phead { padding:14px 18px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; }
+  .ptitle { font-family:'Space Mono',monospace; font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--orange); }
+  .pbadge { background:var(--orange-dim); color:var(--orange); font-size:10px; padding:2px 9px; border-radius:10px; font-family:'Space Mono',monospace; }
+
+  /* CHART */
+  .chart-wrap { padding:18px; }
+  .chart-wrap canvas { max-height:200px; }
+
+  /* FOLLOW-UP */
+  .fup-item { padding:12px 18px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; }
+  .fup-item:last-child { border-bottom:none; }
+  .fup-av { width:34px; height:34px; background:var(--orange-dim); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px; color:var(--orange); flex-shrink:0; }
+  .fup-info { flex:1; min-width:0; }
+  .fup-name { font-weight:600; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:1px; }
+  .fup-meta { font-size:11px; color:var(--muted); }
+  .fup-rec { font-size:11px; color:var(--orange); font-family:'Space Mono',monospace; margin-top:1px; }
+  .fup-right { text-align:right; flex-shrink:0; }
+  .fup-dias { font-size:22px; font-weight:700; line-height:1; }
+  .fup-dias.red { color:var(--red); }
+  .fup-dias.yellow { color:var(--yellow); }
+  .fup-dias.dark { color:#666; }
+  .fup-dlabel { font-size:10px; color:var(--muted); }
+
+  /* RANKING TABLE */
+  .full-panel { background:var(--navy); border:1px solid var(--line); border-radius:12px; overflow:hidden; margin-bottom:24px; }
+  .ctable { width:100%; border-collapse:collapse; }
+  .ctable th { padding:10px 14px; text-align:left; font-family:'Space Mono',monospace; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--line); cursor:pointer; user-select:none; white-space:nowrap; }
+  .ctable th:hover { color:var(--orange); }
+  .ctable th.sorted { color:var(--orange); }
+  .ctable td { padding:10px 14px; border-bottom:1px solid var(--line); font-size:13px; vertical-align:middle; }
+  .ctable tr:last-child td { border-bottom:none; }
+  .ctable tr:hover td { background:rgba(255,255,255,0.02); }
+  .cname { font-weight:600; max-width:190px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cserv { font-size:10px; color:var(--muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:190px; }
+  .rnk { font-family:'Space Mono',monospace; font-size:11px; color:var(--muted); text-align:center; width:30px; }
+  .rnk.top { color:var(--orange); font-weight:700; }
+  .vor { color:var(--orange); font-weight:600; font-family:'Space Mono',monospace; font-size:12px; }
+  .vmuted { color:var(--muted); font-family:'Space Mono',monospace; font-size:12px; }
+  .mbar-wrap { display:flex; align-items:center; gap:6px; }
+  .mbar-bg { flex:1; height:3px; background:rgba(255,255,255,0.06); border-radius:2px; overflow:hidden; }
+  .mbar { height:100%; background:var(--orange); border-radius:2px; transition:width .3s; }
+
+  /* STATUS BADGES */
+  .sbadge { display:inline-flex; align-items:center; gap:5px; font-size:11px; padding:3px 9px; border-radius:10px; white-space:nowrap; }
+  .sbadge.gr { background:rgba(46,204,113,0.1); color:var(--green); }
+  .sbadge.ye { background:rgba(241,196,15,0.1); color:var(--yellow); }
+  .sbadge.re { background:rgba(231,76,60,0.1); color:var(--red); }
+  .sbadge.dk { background:rgba(255,255,255,0.05); color:#777; }
+  .sbadge-dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
+
+  /* SERVIÇOS */
+  .svc-row { display:flex; align-items:center; gap:10px; padding:9px 18px; border-bottom:1px solid var(--line); font-size:13px; }
+  .svc-row:last-child { border-bottom:none; }
+  .svc-name { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px; }
+  .svc-cnt { font-family:'Space Mono',monospace; font-size:12px; color:var(--orange); min-width:38px; text-align:right; }
+
+  /* EMPTY */
+  .empty { padding:36px 20px; text-align:center; color:var(--muted); font-size:13px; }
+
+  /* SCROLL */
+  .scroll { max-height:380px; overflow-y:auto; }
+  .scroll::-webkit-scrollbar { width:3px; }
+  .scroll::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.08); border-radius:2px; }
+
+  @media (max-width:1100px) {
+    .kgrid { grid-template-columns:repeat(3,1fr); }
+    .sgrid { grid-template-columns:repeat(2,1fr); }
+    .twocol { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text">Processando dados...</div>
+</div>
+
+<!-- UPLOAD -->
+<div id="upload-screen">
+  <div class="brand-tag">Scapini Dental Design</div>
+  <h1 class="upload-title">Dashboard de <span>Relacionamento</span></h1>
+  <p class="upload-sub">Importe a planilha de pedidos para visualizar os dados</p>
+  <div class="drop-zone" id="drop-zone">
+    <input type="file" id="file-input" accept=".xlsx,.xls">
+    <div class="drop-icon">📊</div>
+    <h3>Arraste a planilha aqui</h3>
+    <p>ou clique para selecionar o arquivo</p>
+    <div class="drop-hint">Aceita .xlsx exportado do sistema</div>
+  </div>
+  <div id="upload-error"></div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <header>
+    <div class="hbrand">
+      <div class="pulse"></div>
+      <span>Scapini <em>Dental</em> — Relacionamento</span>
+    </div>
+    <div class="hright">
+      <div class="hfile" id="hfile"></div>
+      <button class="btn-sm" onclick="resetApp()">↩ Trocar arquivo</button>
+    </div>
+  </header>
+
+  <!-- Filtros de período e status -->
+  <div class="fbar">
+    <span class="flabel">Período</span>
+    <button class="fbtn" data-dias="30"  onclick="setPeriodo(30)">30 dias</button>
+    <button class="fbtn" data-dias="60"  onclick="setPeriodo(60)">60 dias</button>
+    <button class="fbtn active" data-dias="90" onclick="setPeriodo(90)">90 dias</button>
+    <button class="fbtn" data-dias="180" onclick="setPeriodo(180)">180 dias</button>
+    <button class="fbtn" data-dias="360" onclick="setPeriodo(360)">360 dias</button>
+    <button class="fbtn" data-dias="730" onclick="setPeriodo(730)">24 meses</button>
+    <div class="fsep"></div>
+    <span class="flabel">Status</span>
+    <button class="fbtn" data-st="todos"   onclick="setStatus('todos')">Todos</button>
+    <button class="fbtn" data-st="ativo"   onclick="setStatus('ativo')">🟢 Ativos</button>
+    <button class="fbtn" data-st="atencao" onclick="setStatus('atencao')">🟡 Atenção</button>
+    <button class="fbtn" data-st="risco"   onclick="setStatus('risco')">🔴 Risco</button>
+    <button class="fbtn" data-st="inativo" onclick="setStatus('inativo')">⚫ Inativos</button>
+    <input type="text" class="fsearch" id="fsearch" placeholder="🔍  Buscar cliente..." oninput="renderRanking()">
+  </div>
+
+  <!-- Barra de contexto do filtro ativo -->
+  <div class="status-bar" id="status-bar">
+    <span class="status-bar-text" id="status-bar-text"></span>
+    <span class="status-bar-clear" onclick="setStatus('todos')">× limpar filtro</span>
+  </div>
+
+  <div class="main">
+
+    <!-- KPIs -->
+    <div class="kgrid">
+      <div class="kcard">
+        <div class="klabel">Receita no Período</div>
+        <div class="kval or" id="kpi-rec">—</div>
+        <div class="ksub" id="kpi-rec-sub"></div>
+      </div>
+      <div class="kcard">
+        <div class="klabel">Clientes Ativos</div>
+        <div class="kval gr" id="kpi-ativos">—</div>
+        <div class="ksub">compraram nos últimos 30d</div>
+      </div>
+      <div class="kcard">
+        <div class="klabel">Ticket Médio / OS</div>
+        <div class="kval" id="kpi-ticket">—</div>
+        <div class="ksub" id="kpi-ticket-sub"></div>
+      </div>
+      <div class="kcard">
+        <div class="klabel">Em Risco</div>
+        <div class="kval re" id="kpi-risco">—</div>
+        <div class="ksub">60–90 dias sem comprar</div>
+      </div>
+      <div class="kcard">
+        <div class="klabel">Inativos</div>
+        <div class="kval gy" id="kpi-inativos">—</div>
+        <div class="ksub">mais de 90 dias</div>
+      </div>
+    </div>
+
+    <!-- SEMÁFORO — clicável para filtrar -->
+    <div class="sgrid">
+      <div class="scard sg" id="sc-ativo" onclick="setStatus('ativo')">
+        <div class="stop"><div class="sdot"></div><div><div class="stitle">Ativos</div><div class="ssub">Últimos 30 dias</div></div></div>
+        <div class="scount" id="sc-ativo-n">—</div>
+        <div class="srec" id="sc-ativo-r"></div>
+      </div>
+      <div class="scard sy" id="sc-atencao" onclick="setStatus('atencao')">
+        <div class="stop"><div class="sdot"></div><div><div class="stitle">Atenção</div><div class="ssub">31 a 60 dias</div></div></div>
+        <div class="scount" id="sc-atencao-n">—</div>
+        <div class="srec" id="sc-atencao-r"></div>
+      </div>
+      <div class="scard sr" id="sc-risco" onclick="setStatus('risco')">
+        <div class="stop"><div class="sdot"></div><div><div class="stitle">Risco</div><div class="ssub">61 a 90 dias</div></div></div>
+        <div class="scount" id="sc-risco-n">—</div>
+        <div class="srec" id="sc-risco-r"></div>
+      </div>
+      <div class="scard sd" id="sc-inativo" onclick="setStatus('inativo')">
+        <div class="stop"><div class="sdot"></div><div><div class="stitle">Inativos</div><div class="ssub">Mais de 90 dias</div></div></div>
+        <div class="scount" id="sc-inativo-n">—</div>
+        <div class="srec" id="sc-inativo-r"></div>
+      </div>
+    </div>
+
+    <!-- GRÁFICO + FOLLOW-UP -->
+    <div class="twocol">
+      <div class="panel">
+        <div class="phead">
+          <div class="ptitle">📈 Receita Mensal</div>
+          <span class="pbadge">24 meses</span>
+        </div>
+        <div class="chart-wrap"><canvas id="chart"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="phead">
+          <div class="ptitle">🔴 Follow-up Urgente</div>
+          <span class="pbadge" id="fup-badge">—</span>
+        </div>
+        <div class="scroll" id="fup-list"></div>
+      </div>
+    </div>
+
+    <!-- RANKING COMPLETO -->
+    <div class="full-panel">
+      <div class="phead">
+        <div class="ptitle">💎 Ranking de Clientes</div>
+        <span class="pbadge" id="ranking-badge">—</span>
+      </div>
+      <div class="scroll">
+        <table class="ctable">
+          <thead>
+            <tr>
+              <th class="rnk">#</th>
+              <th onclick="sortRanking('nome')">Cliente</th>
+              <th onclick="sortRanking('rec')">Receita Período</th>
+              <th onclick="sortRanking('os')">OSs</th>
+              <th onclick="sortRanking('ticket')">Ticket Médio</th>
+              <th onclick="sortRanking('freq')">OS/mês</th>
+              <th onclick="sortRanking('ultima')">Última Compra</th>
+              <th onclick="sortRanking('dias')">Dias s/ Comprar</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="ranking-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- BAIXO VOLUME + SERVIÇOS -->
+    <div class="twocol">
+      <div class="panel">
+        <div class="phead">
+          <div class="ptitle">📈 Potencial de Crescimento</div>
+          <span class="pbadge">ativo, volume baixo</span>
+        </div>
+        <div class="scroll" id="bvol-list"></div>
+      </div>
+      <div class="panel">
+        <div class="phead">
+          <div class="ptitle">🦷 Serviços Mais Solicitados</div>
+          <span class="pbadge" id="svc-badge">período</span>
+        </div>
+        <div class="scroll" id="svc-list"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─── ESTADO ───────────────────────────────────────
+let PEDIDOS = [];          // { cliente, ficha, dt:Date, val, desc }
+let CLIENTES = [];         // agregado por cliente (sempre todos os 24m)
+let DATA_MAX = null;
+let filtroDias = 90;
+let filtroStatus = 'todos';
+let sortCol = 'rec';
+let sortAsc = false;
+let chartInst = null;
+
+// ─── STATUS helper ────────────────────────────────
+function calcStatus(diasSem) {
+  if (diasSem <= 30)  return 'ativo';
+  if (diasSem <= 60)  return 'atencao';
+  if (diasSem <= 90)  return 'risco';
+  return 'inativo';
+}
+
+// ─── UPLOAD ───────────────────────────────────────
+const dz = document.getElementById('drop-zone');
+const fi = document.getElementById('file-input');
+
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); if (e.dataTransfer.files[0]) carregarArquivo(e.dataTransfer.files[0]); });
+fi.addEventListener('change', e => { if (e.target.files[0]) carregarArquivo(e.target.files[0]); });
+
+function carregarArquivo(file) {
+  document.getElementById('loading').style.display = 'flex';
+  document.getElementById('upload-error').style.display = 'none';
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { raw: false, dateNF: 'dd/mm/yyyy' });
+      processar(rows, file.name);
+    } catch(err) {
+      document.getElementById('loading').style.display = 'none';
+      mostrarErro('Não foi possível ler o arquivo. Verifique se é um Excel válido.');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseData(v) {
+  if (!v) return null;
+  if (v instanceof Date) return isNaN(v) ? null : v;
+  const s = String(v).trim();
+  // dd/mm/yyyy
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) { const d = new Date(+m[3], +m[2]-1, +m[1]); return isNaN(d) ? null : d; }
+  const d = new Date(s);
+  return isNaN(d) ? null : d;
+}
+
+function processar(rows, nome) {
+  PEDIDOS = rows.map(r => {
+    const cliente = (r['Cliente'] || r['cliente'] || '').trim();
+    const ficha   = String(r['Ficha'] || r['ficha'] || r['OS'] || '').trim();
+    const dtRaw   = r['Dt. Finalizado'] || r['Dt Finalizado'] || r['Data Finalizado'] || r['dt_finalizado'] || r['Data'] || '';
+    const val     = parseFloat(String(r['Valor'] || r['valor'] || '0').replace(',','.')) || 0;
+    const desc    = (r['Descrição'] || r['Descricao'] || r['descrição'] || r['DESCRIÇÃO'] || '').trim();
+    const dt      = parseData(dtRaw);
+    return { cliente, ficha, dt, val, desc };
+  }).filter(r => r.cliente && r.dt && r.val > 0);
+
+  if (!PEDIDOS.length) {
+    document.getElementById('loading').style.display = 'none';
+    mostrarErro('Arquivo lido, mas nenhum dado válido encontrado. Verifique as colunas: Cliente, Dt. Finalizado, Valor.');
+    return;
+  }
+
+  // DATA_MAX = data mais recente na planilha
+  DATA_MAX = new Date(Math.max(...PEDIDOS.map(p => p.dt.getTime())));
+
+  // Agrega clientes (usa todos os 24m para status e histórico)
+  const mapa = {};
+  for (const p of PEDIDOS) {
+    if (!mapa[p.cliente]) mapa[p.cliente] = { nome:p.cliente, fichas:new Set(), val:0, ultima:null, primeira:null, servicos:{} };
+    const c = mapa[p.cliente];
+    c.fichas.add(p.ficha || `${p.cliente}-${p.dt.getTime()}`);
+    c.val += p.val;
+    if (!c.ultima  || p.dt > c.ultima)  c.ultima  = p.dt;
+    if (!c.primeira || p.dt < c.primeira) c.primeira = p.dt;
+    if (p.desc) c.servicos[p.desc] = (c.servicos[p.desc]||0) + 1;
+  }
+
+  CLIENTES = Object.values(mapa).map(c => {
+    const diasSem = Math.floor((DATA_MAX.getTime() - c.ultima.getTime()) / 86400000);
+    return {
+      nome: c.nome,
+      receita: c.val,
+      os: c.fichas.size,
+      ticket: c.val / Math.max(c.fichas.size, 1),
+      freq: c.fichas.size / 24,
+      ultima: c.ultima,
+      primeira: c.primeira,
+      diasSem,
+      status: calcStatus(diasSem),   // ← calculado aqui, nunca vai ser undefined
+      topServico: Object.entries(c.servicos).sort((a,b)=>b[1]-a[1])[0]?.[0] || ''
+    };
+  });
+
+  // Mostrar dashboard
+  document.getElementById('hfile').textContent = nome;
+  document.getElementById('upload-screen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  document.getElementById('loading').style.display = 'none';
+
+  renderTudo();
+}
+
+function mostrarErro(msg) {
+  const el = document.getElementById('upload-error');
+  el.textContent = '⚠ ' + msg;
+  el.style.display = 'block';
+}
+
+// ─── FILTROS ──────────────────────────────────────
+function setPeriodo(dias) {
+  filtroDias = dias;
+  document.querySelectorAll('[data-dias]').forEach(b => b.classList.toggle('active', +b.dataset.dias === dias));
+  renderTudo();
+}
+
+function setStatus(s) {
+  filtroStatus = s;
+
+  // Atualiza botões da barra de filtros
+  document.querySelectorAll('[data-st]').forEach(b => b.classList.toggle('active', b.dataset.st === s));
+
+  // Atualiza cards do semáforo
+  ['ativo','atencao','risco','inativo'].forEach(k => {
+    document.getElementById('sc-'+k)?.classList.toggle('active', s === k);
+  });
+
+  // Barra de contexto
+  const bar = document.getElementById('status-bar');
+  const txt = document.getElementById('status-bar-text');
+  if (s === 'todos') {
+    bar.classList.remove('visible');
+  } else {
+    const labels = { ativo:'🟢 Mostrando apenas clientes ATIVOS (últimos 30 dias)', atencao:'🟡 Mostrando apenas clientes em ATENÇÃO (31–60 dias)', risco:'🔴 Mostrando apenas clientes em RISCO (61–90 dias)', inativo:'⚫ Mostrando apenas clientes INATIVOS (mais de 90 dias)' };
+    txt.textContent = labels[s] || '';
+    bar.classList.add('visible');
+  }
+
+  // Re-renderiza só a tabela de ranking (semáforo e KPIs são sempre totais)
+  renderRanking();
+}
+
+// ─── CLIENTES FILTRADOS ───────────────────────────
+// Retorna clientes com receita calculada para o período selecionado
+function clientesPeriodo() {
+  const corte = new Date(DATA_MAX.getTime() - filtroDias * 86400000);
+  const pedP  = PEDIDOS.filter(p => p.dt >= corte);
+
+  // Receita e OSs no período por cliente
+  const rec = {}, oset = {};
+  for (const p of pedP) {
+    rec[p.cliente]  = (rec[p.cliente]  || 0) + p.val;
+    if (!oset[p.cliente]) oset[p.cliente] = new Set();
+    oset[p.cliente].add(p.ficha || `${p.cliente}-${p.dt.getTime()}`);
+  }
+
+  // Merge com dados completos de CLIENTES (que contém status, diasSem, etc.)
+  return CLIENTES.map(c => ({
+    ...c,
+    recPeriodo: rec[c.nome] || 0,
+    osPeriodo:  oset[c.nome]?.size || 0,
+    ticketPeriodo: oset[c.nome]?.size ? (rec[c.nome]||0) / oset[c.nome].size : 0
+  }));
+}
+
+function listaFiltrada() {
+  let lista = clientesPeriodo();
+  const q = (document.getElementById('fsearch')?.value || '').toLowerCase().trim();
+  if (q) lista = lista.filter(c => c.nome.toLowerCase().includes(q));
+  if (filtroStatus !== 'todos') lista = lista.filter(c => c.status === filtroStatus);
+  return lista;
+}
+
+// ─── RENDER TUDO ─────────────────────────────────
+function renderTudo() {
+  renderKPIs();
+  renderSemaforo();
+  renderChart();
+  renderRanking();
+  renderFollowup();
+  renderBaixoVolume();
+  renderServicos();
+}
+
+// ─── KPIs ─────────────────────────────────────────
+function renderKPIs() {
+  const corte = new Date(DATA_MAX.getTime() - filtroDias * 86400000);
+  const pedP  = PEDIDOS.filter(p => p.dt >= corte);
+  const recT  = pedP.reduce((s,p)=>s+p.val, 0);
+  const osT   = new Set(pedP.map(p=>p.ficha||`${p.cliente}-${p.dt.getTime()}`)).size;
+
+  document.getElementById('kpi-rec').textContent     = brl(recT);
+  document.getElementById('kpi-rec-sub').textContent  = `${osT} OSs no período`;
+  document.getElementById('kpi-ativos').textContent   = CLIENTES.filter(c=>c.status==='ativo').length;
+  document.getElementById('kpi-ticket').textContent   = osT ? brl(recT/osT) : '—';
+  document.getElementById('kpi-ticket-sub').textContent = `${CLIENTES.length} clientes total`;
+  document.getElementById('kpi-risco').textContent    = CLIENTES.filter(c=>c.status==='risco').length;
+  document.getElementById('kpi-inativos').textContent = CLIENTES.filter(c=>c.status==='inativo').length;
+}
+
+// ─── SEMÁFORO ─────────────────────────────────────
+function renderSemaforo() {
+  const grupos = { ativo:[], atencao:[], risco:[], inativo:[] };
+  for (const c of CLIENTES) grupos[c.status].push(c);
+  [['ativo','sc-ativo'],['atencao','sc-atencao'],['risco','sc-risco'],['inativo','sc-inativo']].forEach(([k,id])=>{
+    document.getElementById(id+'-n').textContent = grupos[k].length;
+    const r = grupos[k].reduce((s,c)=>s+c.receita,0);
+    document.getElementById(id+'-r').textContent = brl(r) + ' em receita histórica';
+  });
+}
+
+// ─── GRÁFICO ──────────────────────────────────────
+function renderChart() {
+  const meses = {};
+  for (const p of PEDIDOS) {
+    const k = `${p.dt.getFullYear()}-${String(p.dt.getMonth()+1).padStart(2,'0')}`;
+    meses[k] = (meses[k]||0) + p.val;
+  }
+  const keys   = Object.keys(meses).sort().slice(-24);
+  const labels = keys.map(k => { const [y,m]=k.split('-'); return new Date(+y,+m-1,1).toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}); });
+  const vals   = keys.map(k => meses[k]||0);
+  const maxV   = Math.max(...vals, 1);
+
+  if (chartInst) chartInst.destroy();
+  chartInst = new Chart(document.getElementById('chart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data:vals, backgroundColor: vals.map(v=>v===maxV?'#ed7625':'rgba(237,118,37,0.22)'), borderRadius:4, borderSkipped:false }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:true,
+      plugins: { legend:{display:false}, tooltip:{ callbacks:{ label: c=>' '+brl(c.raw) } } },
+      scales: {
+        x: { grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'rgba(255,255,255,0.35)',font:{size:10}} },
+        y: { grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'rgba(255,255,255,0.35)',font:{size:10}, callback: v=>'R$'+(v/1000).toFixed(0)+'k'} }
+      }
+    }
+  });
+}
+
+// ─── RANKING ──────────────────────────────────────
+function sortRanking(col) {
+  if (sortCol === col) sortAsc = !sortAsc; else { sortCol = col; sortAsc = false; }
+  renderRanking();
+}
+
+function renderRanking() {
+  let lista = listaFiltrada();
+
+  // Ordenação
+  lista.sort((a,b) => {
+    let va, vb;
+    switch(sortCol) {
+      case 'nome':   va=a.nome; vb=b.nome; break;
+      case 'os':     va=a.osPeriodo; vb=b.osPeriodo; break;
+      case 'ticket': va=a.ticketPeriodo; vb=b.ticketPeriodo; break;
+      case 'freq':   va=a.freq; vb=b.freq; break;
+      case 'ultima': va=a.diasSem; vb=b.diasSem; break;
+      case 'dias':   va=a.diasSem; vb=b.diasSem; break;
+      default:       va=a.recPeriodo; vb=b.recPeriodo;
+    }
+    if (typeof va === 'string') return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    return sortAsc ? va-vb : vb-va;
+  });
+
+  document.getElementById('ranking-badge').textContent = lista.length + ' clientes';
+
+  const maxR = Math.max(...lista.map(c=>c.recPeriodo), 1);
+  const tbody = document.getElementById('ranking-body');
+
+  if (!lista.length) {
+    tbody.innerHTML = `<tr><td colspan="9" class="empty">Nenhum cliente encontrado para esse filtro</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = lista.map((c,i) => {
+    const pct = (c.recPeriodo/maxR*100).toFixed(1);
+    const [scls, slabel] = statusInfo(c.status);
+    return `<tr>
+      <td class="rnk ${i<3?'top':''}">${i+1}</td>
+      <td>
+        <div class="cname" title="${c.nome}">${c.nome}</div>
+        <div class="cserv" title="${c.topServico}">${c.topServico}</div>
+      </td>
+      <td>
+        <div class="vor">${brl(c.recPeriodo)}</div>
+        <div class="mbar-wrap" style="margin-top:4px"><div class="mbar-bg"><div class="mbar" style="width:${pct}%"></div></div></div>
+      </td>
+      <td class="vmuted">${c.osPeriodo}</td>
+      <td class="vmuted">${c.ticketPeriodo ? brl(c.ticketPeriodo) : '—'}</td>
+      <td class="vmuted">${c.freq.toFixed(1)}/mês</td>
+      <td class="vmuted">${fmtDt(c.ultima)}</td>
+      <td class="vmuted">${c.diasSem}d</td>
+      <td><span class="sbadge ${scls}"><span class="sbadge-dot"></span>${slabel}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── FOLLOW-UP ────────────────────────────────────
+function renderFollowup() {
+  const lista = CLIENTES
+    .filter(c => c.status === 'risco' || c.status === 'inativo')
+    .sort((a,b) => b.receita - a.receita)
+    .slice(0,20);
+
+  document.getElementById('fup-badge').textContent = lista.length + ' clientes';
+  const el = document.getElementById('fup-list');
+
+  if (!lista.length) { el.innerHTML = '<div class="empty">Nenhum cliente em risco 🎉</div>'; return; }
+
+  el.innerHTML = lista.map(c => {
+    const dcls = c.status === 'risco' ? 'red' : 'dark';
+    return `<div class="fup-item">
+      <div class="fup-av">${av(c.nome)}</div>
+      <div class="fup-info">
+        <div class="fup-name">${c.nome}</div>
+        <div class="fup-meta">Última compra: ${fmtDt(c.ultima)} · ${c.os} OSs histórico</div>
+        <div class="fup-rec">${brl(c.receita)} em receita total</div>
+      </div>
+      <div class="fup-right">
+        <div class="fup-dias ${dcls}">${c.diasSem}</div>
+        <div class="fup-dlabel">dias sem comprar</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── BAIXO VOLUME ─────────────────────────────────
+function renderBaixoVolume() {
+  const mediaFreq = CLIENTES.reduce((s,c)=>s+c.freq,0) / Math.max(CLIENTES.length,1);
+  const lista = CLIENTES
+    .filter(c => (c.status==='ativo'||c.status==='atencao') && c.freq < mediaFreq*0.6 && c.receita>500)
+    .sort((a,b)=>b.receita-a.receita).slice(0,12);
+
+  const el = document.getElementById('bvol-list');
+  if (!lista.length) { el.innerHTML='<div class="empty">Nenhum cliente identificado</div>'; return; }
+
+  el.innerHTML = lista.map(c => `
+    <div class="fup-item">
+      <div class="fup-av">${av(c.nome)}</div>
+      <div class="fup-info">
+        <div class="fup-name">${c.nome}</div>
+        <div class="fup-meta">${c.freq.toFixed(1)} OS/mês · ${c.os} OSs em 24m</div>
+        <div class="fup-rec">${brl(c.receita)} receita total</div>
+      </div>
+      <div class="fup-right">
+        <div class="fup-dias yellow">${c.freq.toFixed(1)}</div>
+        <div class="fup-dlabel">OS/mês</div>
+      </div>
+    </div>`).join('');
+}
+
+// ─── SERVIÇOS ─────────────────────────────────────
+function renderServicos() {
+  const corte = new Date(DATA_MAX.getTime() - filtroDias*86400000);
+  const cnt = {};
+  for (const p of PEDIDOS) {
+    if (p.dt >= corte && p.desc) {
+      const k = p.desc.length>55 ? p.desc.substring(0,55)+'…' : p.desc;
+      cnt[k] = (cnt[k]||0)+1;
+    }
+  }
+  const lista = Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  const maxC = lista[0]?.[1]||1;
+  document.getElementById('svc-badge').textContent = filtroDias+'d';
+  const el = document.getElementById('svc-list');
+  if (!lista.length) { el.innerHTML='<div class="empty">Sem dados</div>'; return; }
+  el.innerHTML = lista.map(([nome,n])=>`
+    <div class="svc-row">
+      <div class="svc-name" title="${nome}">${nome}</div>
+      <div class="mbar-wrap" style="width:70px"><div class="mbar-bg"><div class="mbar" style="width:${(n/maxC*100).toFixed(0)}%"></div></div></div>
+      <div class="svc-cnt">${n}×</div>
+    </div>`).join('');
+}
+
+// ─── HELPERS ──────────────────────────────────────
+function brl(v) { return 'R$ '+Math.round(v).toLocaleString('pt-BR'); }
+function fmtDt(d) { return d ? d.toLocaleDateString('pt-BR') : '—'; }
+function av(n) { return n.trim().split(' ').slice(0,2).map(p=>p[0]||'').join('').toUpperCase(); }
+function statusInfo(s) {
+  return { ativo:['gr','Ativo'], atencao:['ye','Atenção'], risco:['re','Risco'], inativo:['dk','Inativo'] }[s] || ['dk','—'];
+}
+
+function resetApp() {
+  PEDIDOS=[]; CLIENTES=[]; DATA_MAX=null; filtroStatus='todos'; filtroDias=90;
+  document.getElementById('dashboard').style.display='none';
+  document.getElementById('upload-screen').style.display='flex';
+  document.getElementById('file-input').value='';
+  document.getElementById('fsearch').value='';
+  document.getElementById('status-bar').classList.remove('visible');
+}
+</script>
+</body>
+</html>
