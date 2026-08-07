@@ -181,6 +181,41 @@
   /* EMPTY */
   .empty { padding:36px 20px; text-align:center; color:var(--muted); font-size:13px; }
 
+  /* NOTAS MODAL */
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:500; display:none; align-items:center; justify-content:center; }
+  .modal-overlay.open { display:flex; }
+  .modal { background:var(--navy); border:1px solid var(--line); border-radius:16px; width:100%; max-width:520px; max-height:80vh; display:flex; flex-direction:column; overflow:hidden; }
+  .modal-head { padding:18px 22px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; }
+  .modal-title { font-size:15px; font-weight:600; }
+  .modal-close { background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; padding:0 4px; line-height:1; }
+  .modal-close:hover { color:var(--white); }
+  .modal-body { flex:1; overflow-y:auto; padding:18px 22px; display:flex; flex-direction:column; gap:10px; }
+  .nota-item { background:rgba(255,255,255,0.04); border-radius:8px; padding:12px 14px; }
+  .nota-texto { font-size:13px; line-height:1.6; }
+  .nota-meta { font-size:11px; color:var(--muted); font-family:'Space Mono',monospace; margin-top:6px; }
+  .modal-foot { padding:14px 22px; border-top:1px solid var(--line); display:flex; gap:10px; }
+  .nota-input { flex:1; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:10px 13px; color:var(--white); font-size:13px; font-family:'Open Sans',sans-serif; resize:none; height:60px; }
+  .nota-input:focus { outline:none; border-color:var(--orange); }
+  .nota-send { background:var(--orange); border:none; color:#fff; border-radius:8px; padding:10px 18px; font-size:13px; font-weight:600; cursor:pointer; font-family:'Open Sans',sans-serif; white-space:nowrap; }
+  .nota-send:hover { opacity:.88; }
+
+  /* AÇÃO BUTTONS */
+  .acao-btns { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .acao-btn { background:none; border:1px solid rgba(255,255,255,0.12); color:rgba(255,255,255,0.55); padding:3px 10px; border-radius:12px; font-size:11px; cursor:pointer; font-family:'Open Sans',sans-serif; transition:all .2s; }
+  .acao-btn:hover { border-color:var(--orange); color:var(--orange); }
+  .acao-btn.ativo-acao { font-weight:600; }
+  .acao-btn[data-s="contatado"].ativo-acao  { border-color:#2ecc71; color:#2ecc71; background:rgba(46,204,113,0.08); }
+  .acao-btn[data-s="aguardando"].ativo-acao { border-color:#f1c40f; color:#f1c40f; background:rgba(241,196,15,0.08); }
+  .acao-btn[data-s="reativado"].ativo-acao  { border-color:#3498db; color:#3498db; background:rgba(52,152,219,0.08); }
+  .acao-btn[data-s="perdido"].ativo-acao    { border-color:#e74c3c; color:#e74c3c; background:rgba(231,76,60,0.08); }
+  .btn-nota { background:none; border:none; color:var(--muted); cursor:pointer; font-size:15px; padding:2px 4px; transition:color .2s; }
+  .btn-nota:hover { color:var(--orange); }
+
+  /* SYNC BUTTON */
+  .btn-sync { background:rgba(237,118,37,0.12); border:1px solid rgba(237,118,37,0.25); color:var(--orange); padding:5px 13px; border-radius:6px; font-size:12px; cursor:pointer; font-family:'Open Sans',sans-serif; transition:all .2s; }
+  .btn-sync:hover { background:rgba(237,118,37,0.2); }
+  .sync-ok { color:#2ecc71; font-size:11px; font-family:'Space Mono',monospace; display:none; }
+
   /* SCROLL */
   .scroll { max-height:380px; overflow-y:auto; }
   .scroll::-webkit-scrollbar { width:3px; }
@@ -197,7 +232,24 @@
 
 <div id="loading">
   <div class="spinner"></div>
-  <div class="loading-text">Processando dados...</div>
+  <div class="loading-text" id="loading-text">Processando dados...</div>
+</div>
+
+<!-- MODAL NOTAS -->
+<div class="modal-overlay" id="modal-notas">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="modal-cliente-nome">Notas</div>
+      <button class="modal-close" onclick="fecharModal()">×</button>
+    </div>
+    <div class="modal-body" id="modal-notas-list">
+      <div class="empty">Carregando...</div>
+    </div>
+    <div class="modal-foot">
+      <textarea class="nota-input" id="nota-input" placeholder="Adicionar nota..." rows="2"></textarea>
+      <button class="nota-send" onclick="salvarNota()">Salvar</button>
+    </div>
+  </div>
 </div>
 
 <!-- UPLOAD -->
@@ -224,6 +276,8 @@
     </div>
     <div class="hright">
       <div class="hfile" id="hfile"></div>
+      <span class="sync-ok" id="sync-ok">✓ salvo</span>
+      <button class="btn-sync" id="btn-sync" onclick="importarParaSupabase()">☁ Sync Supabase</button>
       <button class="btn-sm" onclick="resetApp()">↩ Trocar arquivo</button>
     </div>
   </header>
@@ -345,6 +399,7 @@
               <th onclick="sortRanking('ultima')">Última Compra</th>
               <th onclick="sortRanking('dias')">Dias s/ Comprar</th>
               <th>Status</th>
+              <th></th>
             </tr>
           </thead>
           <tbody id="ranking-body"></tbody>
@@ -374,6 +429,121 @@
 </div>
 
 <script>
+// ─── SUPABASE CONFIG ──────────────────────────────
+const SB_URL  = 'https://kawboczphmysookkctwd.supabase.co';
+const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imthd2JvY3pwaG15c29va2tjdHdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYwNTQxNTEsImV4cCI6MjEwMTYzMDE1MX0.ug73OatKCSRbeh7krnNAsc9QlYg09MKqxZ5fWA1rnnU';
+
+async function sbFetch(path, opts={}) {
+  const r = await fetch(SB_URL + '/rest/v1' + path, {
+    headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + SB_ANON,
+               'Content-Type': 'application/json', 'Prefer': 'return=representation', ...opts.headers },
+    ...opts
+  });
+  if (!r.ok) throw new Error(await r.text());
+  const txt = await r.text();
+  return txt ? JSON.parse(txt) : [];
+}
+
+// ─── NOTAS ────────────────────────────────────────
+let notasClienteAtual = '';
+
+async function abrirNotas(cliente) {
+  notasClienteAtual = cliente;
+  document.getElementById('modal-cliente-nome').textContent = '📝 ' + cliente;
+  document.getElementById('modal-notas').classList.add('open');
+  document.getElementById('nota-input').value = '';
+  await recarregarNotas();
+}
+
+async function recarregarNotas() {
+  const el = document.getElementById('modal-notas-list');
+  el.innerHTML = '<div class="empty">Carregando...</div>';
+  try {
+    const notas = await sbFetch(`/clientes_notas?cliente=eq.${encodeURIComponent(notasClienteAtual)}&order=criado_em.desc`);
+    if (!notas.length) { el.innerHTML = '<div class="empty">Nenhuma nota ainda.</div>'; return; }
+    el.innerHTML = notas.map(n => `
+      <div class="nota-item">
+        <div class="nota-texto">${escapeHtml(n.nota)}</div>
+        <div class="nota-meta">${new Date(n.criado_em).toLocaleString('pt-BR')} · ${escapeHtml(n.autor||'')}</div>
+      </div>`).join('');
+  } catch(e) { el.innerHTML = '<div class="empty">Erro ao carregar notas.</div>'; }
+}
+
+async function salvarNota() {
+  const txt = document.getElementById('nota-input').value.trim();
+  if (!txt) return;
+  try {
+    await sbFetch('/clientes_notas', { method:'POST', body: JSON.stringify({ cliente: notasClienteAtual, nota: txt, autor: 'bruno' }) });
+    document.getElementById('nota-input').value = '';
+    await recarregarNotas();
+  } catch(e) { alert('Erro ao salvar nota: ' + e.message); }
+}
+
+function fecharModal() {
+  document.getElementById('modal-notas').classList.remove('open');
+  notasClienteAtual = '';
+}
+
+function escapeHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── AÇÕES DE FOLLOW-UP ───────────────────────────
+let ACOES_CACHE = {};   // cliente → status
+
+async function carregarAcoes() {
+  try {
+    const lista = await sbFetch('/followup_acoes?order=criado_em.desc&limit=500');
+    ACOES_CACHE = {};
+    for (const a of lista) {
+      if (!ACOES_CACHE[a.cliente]) ACOES_CACHE[a.cliente] = a.status;
+    }
+  } catch(e) { console.warn('followup_acoes:', e.message); }
+}
+
+async function registrarAcao(cliente, status, btn) {
+  try {
+    await sbFetch('/followup_acoes', { method:'POST', body: JSON.stringify({ cliente, status, data_acao: new Date().toISOString().slice(0,10) }) });
+    ACOES_CACHE[cliente] = status;
+    // Atualiza os botões do grupo
+    const grupo = btn.closest('.acao-btns');
+    grupo.querySelectorAll('.acao-btn').forEach(b => b.classList.remove('ativo-acao'));
+    btn.classList.add('ativo-acao');
+  } catch(e) { alert('Erro ao salvar ação: ' + e.message); }
+}
+
+// ─── IMPORT SUPABASE ──────────────────────────────
+async function importarParaSupabase() {
+  if (!PEDIDOS.length) return;
+  const btn = document.getElementById('btn-sync');
+  btn.textContent = 'Sincronizando...';
+  btn.disabled = true;
+  try {
+    // deleta existentes e reinsere (simples para planilha mensal)
+    await fetch(SB_URL + '/rest/v1/pedidos_lab', {
+      method: 'DELETE',
+      headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + SB_ANON }
+    });
+    const batch = PEDIDOS.map(p => ({
+      cliente: p.cliente, ficha: p.ficha || null,
+      dt_finalizado: p.dt ? p.dt.toISOString().slice(0,10) : null,
+      valor: p.val, descricao: p.desc || null
+    }));
+    // Supabase aceita até 1000 por vez
+    for (let i=0; i<batch.length; i+=900) {
+      await sbFetch('/pedidos_lab', { method:'POST', body: JSON.stringify(batch.slice(i,i+900)) });
+    }
+    btn.textContent = '✓ Sincronizado';
+    btn.style.color = '#2ecc71';
+    document.getElementById('sync-ok').style.display = 'inline';
+    setTimeout(()=>{ btn.textContent='Sync Supabase'; btn.style.color=''; btn.disabled=false; },3000);
+  } catch(e) {
+    btn.textContent = 'Erro!';
+    btn.disabled = false;
+    alert('Erro ao sincronizar: ' + e.message);
+  }
+}
+
 // ─── ESTADO ───────────────────────────────────────
 let PEDIDOS = [];          // { cliente, ficha, dt:Date, val, desc }
 let CLIENTES = [];         // agregado por cliente (sempre todos os 24m)
@@ -484,7 +654,8 @@ function processar(rows, nome) {
   document.getElementById('dashboard').style.display = 'block';
   document.getElementById('loading').style.display = 'none';
 
-  renderTudo();
+  // Carrega ações salvas do Supabase antes de renderizar follow-up
+  carregarAcoes().then(() => renderTudo());
 }
 
 function mostrarErro(msg) {
@@ -656,7 +827,7 @@ function renderRanking() {
   const tbody = document.getElementById('ranking-body');
 
   if (!lista.length) {
-    tbody.innerHTML = `<tr><td colspan="9" class="empty">Nenhum cliente encontrado para esse filtro</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" class="empty">Nenhum cliente encontrado para esse filtro</td></tr>`;
     return;
   }
 
@@ -679,6 +850,7 @@ function renderRanking() {
       <td class="vmuted">${fmtDt(c.ultima)}</td>
       <td class="vmuted">${c.diasSem}d</td>
       <td><span class="sbadge ${scls}"><span class="sbadge-dot"></span>${slabel}</span></td>
+      <td><button class="btn-nota" title="Notas" onclick="abrirNotas('${escapeHtml(c.nome).replace(/'/g,"\\'")}')">📝</button></td>
     </tr>`;
   }).join('');
 }
@@ -697,12 +869,26 @@ function renderFollowup() {
 
   el.innerHTML = lista.map(c => {
     const dcls = c.status === 'risco' ? 'red' : 'dark';
+    const acaoAtual = ACOES_CACHE[c.nome] || '';
+    const acoes = [
+      { s:'contatado', label:'✓ Contatado' },
+      { s:'aguardando', label:'⏳ Aguardando' },
+      { s:'reativado',  label:'↩ Reativado'  },
+      { s:'perdido',    label:'✗ Perdido'     },
+    ];
+    const btnsHtml = acoes.map(a =>
+      `<button class="acao-btn${acaoAtual===a.s?' ativo-acao':''}" data-s="${a.s}"
+        onclick="registrarAcao('${escapeHtml(c.nome)}','${a.s}',this)">${a.label}</button>`
+    ).join('');
     return `<div class="fup-item">
       <div class="fup-av">${av(c.nome)}</div>
       <div class="fup-info">
-        <div class="fup-name">${c.nome}</div>
+        <div class="fup-name">${escapeHtml(c.nome)}
+          <button class="btn-nota" title="Notas" onclick="abrirNotas('${escapeHtml(c.nome).replace(/'/g,"\\'")}')">📝</button>
+        </div>
         <div class="fup-meta">Última compra: ${fmtDt(c.ultima)} · ${c.os} OSs histórico</div>
         <div class="fup-rec">${brl(c.receita)} em receita total</div>
+        <div class="acao-btns">${btnsHtml}</div>
       </div>
       <div class="fup-right">
         <div class="fup-dias ${dcls}">${c.diasSem}</div>
