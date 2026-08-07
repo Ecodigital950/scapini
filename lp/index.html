@@ -602,7 +602,8 @@
         /* video grid */
         .proof-videos {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr;
+            max-width: 480px;
             gap: 24px;
         }
 
@@ -1053,18 +1054,6 @@
             </div>
         </div>
 
-        <!-- Vídeo 2: substitua "depoimento-2.mp4" pelo nome do seu arquivo -->
-        <div class="proof-video-wrap">
-            <video src="depoimento-2.mp4" controls playsinline preload="metadata" poster="">
-            </video>
-            <div class="proof-video-placeholder" id="ph2">
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <polygon points="10,8 16,12 10,16" fill="currentColor" stroke="none"/>
-                </svg>
-                <span>Depoimento 2</span>
-            </div>
-        </div>
     </div>
 </section>
 
