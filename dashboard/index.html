@@ -1001,16 +1001,31 @@ function lerArquivo(file) {
       const ws   = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, { raw:false, dateNF:'dd/mm/yyyy' });
       const parsed = rows.map(r => {
-        const cliente = (r['Cliente']||r['cliente']||'').trim();
-        const ficha   = String(r['Ficha']||r['ficha']||r['OS']||'').trim();
-        const dtRaw   = r['Dt. Finalizado']||r['Dt Finalizado']||r['Data Finalizado']||r['dt_finalizado']||r['Data']||'';
-        const val     = parseFloat(String(r['Valor']||r['valor']||'0').replace(',','.')) || 0;
-        const desc    = (r['Descrição']||r['Descricao']||r['descrição']||r['DESCRIÇÃO']||'').trim();
+        const cliente = (r['Cliente']||r['cliente']||r['CLIENTE']||r['Razão Social']||r['Razao Social']||r['Nome Cliente']||r['nome']||'').trim();
+        const ficha   = String(r['Ficha']||r['ficha']||r['OS']||r['Pedido']||r['Nr. Pedido']||r['Nº Pedido']||'').trim();
+        const dtRaw   = r['Dt. Finalizado']||r['Dt Finalizado']||r['Data Finalizado']||r['dt_finalizado']||
+                        r['Data do Pedido']||r['Data Pedido']||r['Dt. Pedido']||r['Dt Pedido']||r['Data']||
+                        r['DATA']||r['Data de Emissão']||r['Data Emissão']||r['Data Emissao']||r['Emissão']||'';
+        const val     = parseFloat(String(r['Valor']||r['valor']||r['VALOR']||r['Vl. Pedido']||r['Valor Pedido']||
+                        r['Vl Pedido']||r['Total']||r['Estimado(L1)']||'0').replace(/\./g,'').replace(',','.')) || 0;
+        const desc    = (r['Descrição']||r['Descricao']||r['descrição']||r['DESCRIÇÃO']||r['Produto']||r['Serviço']||r['Servico']||'').trim();
         const dt      = parseData(dtRaw);
         return { cliente, ficha, dt, val, desc };
       }).filter(r => r.cliente && r.dt && r.val > 0);
       esconderLoading();
-      if (!parsed.length) { mostrarErroUpload('Nenhum dado válido encontrado. Verifique as colunas: Cliente, Dt. Finalizado, Valor.'); return; }
+      if (!parsed.length) {
+        // diagnóstico: identificar qual coluna está faltando
+        const amostra = rows[0] || {};
+        const cols = Object.keys(amostra).join(', ');
+        const temCliente = rows.some(r => r['Cliente']||r['cliente']||r['Razão Social']||r['Nome Cliente']);
+        const temData    = rows.some(r => r['Dt. Finalizado']||r['Data do Pedido']||r['Data Pedido']||r['Dt. Pedido']||r['Data']||r['Data Emissão']||r['Data Emissao']);
+        const temValor   = rows.some(r => r['Valor']||r['valor']||r['Total']||r['Vl. Pedido']);
+        const faltando   = [!temCliente&&'Cliente', !temData&&'Data do Pedido', !temValor&&'Valor'].filter(Boolean);
+        const msg = faltando.length
+          ? `Coluna(s) não encontrada(s): ${faltando.join(', ')}.\nColunas detectadas na planilha: ${cols}`
+          : `Nenhuma linha válida após filtros. Verifique se Valor > 0 e se a data é válida.\nColunas detectadas: ${cols}`;
+        mostrarErroUpload(msg); return;
+      }
       abrirModalPeriodo(parsed);
     } catch(err) {
       esconderLoading();
