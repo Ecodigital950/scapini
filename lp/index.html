@@ -608,6 +608,15 @@
             gap: 24px;
         }
 
+        .proof-video-item { display: flex; flex-direction: column; gap: 16px; }
+        .proof-video-name {
+            font-family: 'Playfair Display', serif;
+            font-style: italic;
+            font-size: 20px;
+            color: var(--white);
+            text-align: center;
+            letter-spacing: 0.3px;
+        }
         .proof-video-wrap {
             position: relative;
             background: rgba(255,255,255,0.03);
@@ -1039,13 +1048,19 @@
     </div>
 
     <div class="proof-videos reveal d2">
-        <div class="proof-video-wrap">
-            <video src="depoimento-1.mov" controls playsinline preload="metadata">
-            </video>
+        <div class="proof-video-item">
+            <div class="proof-video-wrap">
+                <video src="depoimento-1.mov" controls playsinline preload="metadata">
+                </video>
+            </div>
+            <div class="proof-video-name">Narton Volpato</div>
         </div>
-        <div class="proof-video-wrap">
-            <video src="depoimento-2-compressed.mp4" controls playsinline preload="metadata">
-            </video>
+        <div class="proof-video-item">
+            <div class="proof-video-wrap">
+                <video src="depoimento-2-compressed.mp4" controls playsinline preload="metadata">
+                </video>
+            </div>
+            <div class="proof-video-name">Pinho Odontologia</div>
         </div>
 
     </div>
